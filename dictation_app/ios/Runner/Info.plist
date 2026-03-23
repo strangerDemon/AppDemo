@@ -28,6 +28,10 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>We need access to your camera to scan vocabulary lists and dictate your handwritten words.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>We need access to your microphone to monitor environment noise levels and provide AI analysis.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>We need access to save the food calorie analysis card to your photo gallery.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>We need access to your photo library to import vocabulary lists for dictation.</string>
 	<key>UIApplicationSceneManifest</key>
