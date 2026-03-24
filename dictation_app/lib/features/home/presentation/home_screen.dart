@@ -3,12 +3,14 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../main.dart';
-import '../../../core/utils/ocr_service.dart';
+import '../../../core/services/ocr_service.dart';
+import '../../../core/config/app_config.dart';
 import '../../settings/presentation/settings_screen.dart';
-import '../../noise_monitor/presentation/noise_monitor_screen.dart';
-import '../../food_calorie/presentation/food_result_screen.dart';
-import '../../food_calorie/utils/food_ai_service.dart';
-import '../../math_grader/presentation/math_grader_screen.dart';
+import '../../tools/noise_monitor/presentation/noise_monitor_screen.dart';
+import '../../tools/food_calorie/presentation/food_result_screen.dart';
+import '../../../core/services/food_ai_service.dart';
+import '../../tools/math_grader/presentation/math_grader_screen.dart';
+import 'widgets/tool_card_widget.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,13 +20,13 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final OCRService _ocrService = OCRService();
-  final FoodAIService _foodAIService = FoodAIService();
   final ImagePicker _picker = ImagePicker();
-  
+  final OCRService _ocrService = OCRService();
+
   bool _isScanning = false;
   bool _isAnalyzingFood = false;
   bool _isGradingMath = false;
+  bool _isGridView = false; // Add state for view mode
 
   Future<void> _startMathGradeFlow({required bool fromCamera}) async {
     try {
@@ -104,7 +106,8 @@ class _HomeScreenState extends State<HomeScreen> {
       try {
         if (!mounted) return;
         final isZh = context.read<DictationSettingsProvider>().isChinese;
-        final result = await _foodAIService.analyzeFoodImage(image, isZh);
+        final foodAIService = FoodAIService();
+        final result = await foodAIService.analyzeFoodImage(image, isZh);
         
         if (!mounted) return;
         
@@ -264,6 +267,18 @@ class _HomeScreenState extends State<HomeScreen> {
         centerTitle: true,
         actions: [
           IconButton(
+            icon: Icon(
+              _isGridView ? Icons.view_list : Icons.grid_view,
+              color: Colors.blue.shade700,
+            ),
+            tooltip: isZh ? '切换视图' : 'Toggle View',
+            onPressed: () {
+              setState(() {
+                _isGridView = !_isGridView;
+              });
+            },
+          ),
+          IconButton(
             icon: Icon(Icons.language, color: Colors.blue.shade700),
             tooltip: 'Switch Language',
             onPressed: () {
@@ -272,439 +287,117 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isZh ? '我的工具' : 'My Tools',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      body: _isGridView 
+        ? GridView.count(
+            padding: const EdgeInsets.all(16.0),
+            crossAxisCount: 2,
+            mainAxisSpacing: 16.0,
+            crossAxisSpacing: 16.0,
+            children: AppConfig.tools.map((config) {
+              return _buildGridItem(context, config, isZh);
+            }).toList(),
+          )
+        : SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ToolCardWidget(
+                  config: AppConfig.tools.firstWhere((t) => t.id == 'dictation'),
+                  isZh: isZh,
+                  isLoading: _isScanning,
+                  onAction: () => _showScanOptions(context),
+                ),
+                ToolCardWidget(
+                  config: AppConfig.tools.firstWhere((t) => t.id == 'noise_monitor'),
+                  isZh: isZh,
+                  onAction: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const NoiseMonitorScreen()),
+                    );
+                  },
+                ),
+                ToolCardWidget(
+                  config: AppConfig.tools.firstWhere((t) => t.id == 'food_calorie'),
+                  isZh: isZh,
+                  isLoading: _isAnalyzingFood,
+                  onAction: () => _showFoodOptions(context),
+                ),
+                ToolCardWidget(
+                  config: AppConfig.tools.firstWhere((t) => t.id == 'math_grader'),
+                  isZh: isZh,
+                  isLoading: _isGradingMath,
+                  onAction: () => _showMathOptions(context),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            _buildDictationToolCard(context, isZh),
-            const SizedBox(height: 24),
-            _buildNoiseMonitorCard(context, isZh),
-            const SizedBox(height: 24),
-            _buildFoodCalorieCard(context, isZh),
-            const SizedBox(height: 24),
-            _buildMathGraderCard(context, isZh),
-            const SizedBox(height: 24),
+          ),
+    );
+  }
+
+  Widget _buildGridItem(BuildContext context, ToolConfig config, bool isZh) {
+    bool isLoading = false;
+    VoidCallback onAction;
+
+    if (config.id == 'dictation') {
+      isLoading = _isScanning;
+      onAction = () => _showScanOptions(context);
+    } else if (config.id == 'noise_monitor') {
+      onAction = () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const NoiseMonitorScreen()),
+        );
+      };
+    } else if (config.id == 'food_calorie') {
+      isLoading = _isAnalyzingFood;
+      onAction = () => _showFoodOptions(context);
+    } else {
+      isLoading = _isGradingMath;
+      onAction = () => _showMathOptions(context);
+    }
+
+    return InkWell(
+      onTap: isLoading ? null : onAction,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
+            ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildDictationToolCard(BuildContext context, bool isZh) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            height: 120,
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.spellcheck, color: Color(0xFF2563EB), size: 40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: config.themeColor.withOpacity(0.1),
+                shape: BoxShape.circle,
               ),
+              child: isLoading
+                  ? SizedBox(
+                      width: 40, 
+                      height: 40, 
+                      child: CircularProgressIndicator(color: config.themeColor, strokeWidth: 3)
+                    )
+                  : Icon(config.icon, color: config.themeColor, size: 40),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.auto_awesome, color: Color(0xFF2563EB), size: 16),
-                    const SizedBox(width: 8),
-                    Text(
-                      isZh ? 'AI 驱动' : 'AI POWERED',
-                      style: const TextStyle(
-                        color: Color(0xFF2563EB),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  isZh ? '英语单词听写' : 'Vocabulary Dictation',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        isZh ? '拍课本提取单词，AI 自动为你听写并批改。' : 'Snap a photo to extract words, AI will dictate and grade.',
-                        style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    ElevatedButton(
-                      onPressed: _isScanning ? null : () => _showScanOptions(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2563EB),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: _isScanning 
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : Text(isZh ? '开始扫描' : 'Scan Now'),
-                    ),
-                  ],
-                ),
-              ],
+            const SizedBox(height: 16),
+            Text(
+              isZh ? config.titleZh : config.titleEn,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNoiseMonitorCard(BuildContext context, bool isZh) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            height: 120,
-            decoration: BoxDecoration(
-              color: Colors.green.shade50,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.graphic_eq, color: Colors.green, size: 40),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.auto_awesome, color: Colors.green, size: 16),
-                    const SizedBox(width: 8),
-                    Text(
-                      isZh ? 'AI 分析' : 'AI POWERED',
-                      style: const TextStyle(
-                        color: Colors.green,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  isZh ? '环境噪音监测' : 'Noise Monitor',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        isZh ? '实时分贝检测，AI 识别噪音源并提供降噪建议。' : 'Real-time dB meter, AI identifies sources & suggests solutions.',
-                        style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const NoiseMonitorScreen()),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(isZh ? '进入工具' : 'Open'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFoodCalorieCard(BuildContext context, bool isZh) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            height: 120,
-            decoration: BoxDecoration(
-              color: Colors.orange.shade50,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.restaurant, color: Colors.orange, size: 40),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.auto_awesome, color: Colors.orange, size: 16),
-                    const SizedBox(width: 8),
-                    Text(
-                      isZh ? '视觉大模型' : 'VISION AI',
-                      style: const TextStyle(
-                        color: Colors.orange,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  isZh ? '饮食热量识别' : 'Food Calorie AI',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        isZh ? '拍食物，秒算卡路里与营养，生成精美打卡图。' : 'Snap food, get calories & nutrients, create a beautiful card.',
-                        style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    ElevatedButton(
-                      onPressed: _isAnalyzingFood ? null : () => _showFoodOptions(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: _isAnalyzingFood
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : Text(isZh ? '拍照识别' : 'Scan Food'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMathGraderCard(BuildContext context, bool isZh) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            height: 120,
-            decoration: BoxDecoration(
-              color: Colors.purple.shade50,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.calculate, color: Colors.purple, size: 40),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.auto_awesome, color: Colors.purple, size: 16),
-                    const SizedBox(width: 8),
-                    Text(
-                      isZh ? 'OCR 智能引擎' : 'SMART OCR',
-                      style: const TextStyle(
-                        color: Colors.purple,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  isZh ? '口算/方程式批改' : 'Math Homework Grader',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        isZh ? '支持四则运算与基础方程，拍照即可原图批改对错。' : 'Supports arithmetic & basic equations. Snap to grade instantly.',
-                        style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    ElevatedButton(
-                      onPressed: _isGradingMath ? null : () => _showMathOptions(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.purple,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: _isGradingMath
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : Text(isZh ? '拍作业' : 'Grade'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildComingSoonCard(String title, String subtitle, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: Colors.grey.shade500),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey.shade700)),
-                const SizedBox(height: 4),
-                Text(subtitle, style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.orange.shade50,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Text('PRO', style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold)),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

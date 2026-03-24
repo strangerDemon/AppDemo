@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../main.dart';
-import '../utils/noise_service.dart';
+import '../../../../core/services/noise_service.dart';
 import '../utils/noise_ai_service.dart';
 import 'widgets/noise_dashboard.dart';
 
@@ -14,7 +14,6 @@ class NoiseMonitorScreen extends StatefulWidget {
 
 class _NoiseMonitorScreenState extends State<NoiseMonitorScreen> {
   final NoiseService _noiseService = NoiseService();
-  final NoiseAIService _aiService = NoiseAIService();
   
   double _currentDb = 0.0;
   final List<double> _historyDb = [];
@@ -67,7 +66,13 @@ class _NoiseMonitorScreenState extends State<NoiseMonitorScreen> {
     });
 
     try {
-      final result = await _aiService.analyzeNoise(_currentDb, isZh);
+      final averageDb = _historyDb.isEmpty ? _currentDb : _historyDb.reduce((a, b) => a + b) / _historyDb.length;
+      final peakDb = _historyDb.isEmpty ? _currentDb : _historyDb.reduce((a, b) => a > b ? a : b);
+      final result = await NoiseAIService.analyzeNoise(
+        averageDb: averageDb,
+        peakDb: peakDb,
+        isZh: isZh,
+      );
       if (!mounted) return;
       setState(() {
         _aiSource = result['source'];

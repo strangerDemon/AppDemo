@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../core/models/dictation_word.dart';
-import '../../../core/utils/tts_service.dart';
-import '../../../main.dart';
+import '../../../../main.dart';
+import '../../../../core/models/dictation_word.dart';
+import '../../../../core/utils/tts_service.dart';
 import '../../grading/presentation/grading_screen.dart';
 
 class DictationScreen extends StatefulWidget {

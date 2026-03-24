@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'features/home/presentation/home_screen.dart';
 import 'core/models/dictation_word.dart';
 
@@ -69,6 +70,8 @@ class DictateApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isZh = context.watch<DictationSettingsProvider>().isChinese;
+    
     return MaterialApp(
       title: 'DictateAI',
       debugShowCheckedModeBanner: false,
@@ -80,6 +83,16 @@ class DictateApp extends StatelessWidget {
         ),
         scaffoldBackgroundColor: const Color(0xFFF3F4F6),
       ),
+      locale: isZh ? const Locale('zh', 'CN') : const Locale('en', 'US'),
+      supportedLocales: const [
+        Locale('zh', 'CN'),
+        Locale('en', 'US'),
+      ],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       home: const HomeScreen(),
     );
   }

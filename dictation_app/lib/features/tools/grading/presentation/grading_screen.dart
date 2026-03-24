@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../core/models/dictation_word.dart';
-import '../../../core/utils/ocr_service.dart';
-import '../../../core/utils/grading_service.dart';
-import '../../../main.dart';
+import '../../../../core/models/dictation_word.dart';
+import '../../../../core/services/ocr_service.dart';
+import '../../../../core/utils/grading_service.dart';
+import '../../../../main.dart';
+import 'dart:math';
 
 class GradingScreen extends StatefulWidget {
   final List<DictationWord> expectedWords;

@@ -1,15 +1,15 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:screenshot/screenshot.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:gal/gal.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:screenshot/screenshot.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:gal/gal.dart';
 import '../models/food_analysis_result.dart';
 
 class FoodResultScreen extends StatefulWidget {
   final File imageFile;
-  final FoodAnalysisResult initialResult;
+  final Map<String, dynamic> initialResult; // Changed from FoodAnalysisResult to Map
   final bool isZh;
 
   const FoodResultScreen({
@@ -24,14 +24,30 @@ class FoodResultScreen extends StatefulWidget {
 }
 
 class _FoodResultScreenState extends State<FoodResultScreen> {
-  late FoodAnalysisResult _currentResult;
   final ScreenshotController _screenshotController = ScreenshotController();
+  late FoodAnalysisResult _currentResult;
   bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    _currentResult = widget.initialResult;
+    // Map AI JSON result to FoodAnalysisResult model
+    final Map<String, dynamic> data = widget.initialResult;
+    
+    // Calculate percentages
+    final double carbs = (data['carbs'] as num?)?.toDouble() ?? 0;
+    final double protein = (data['protein'] as num?)?.toDouble() ?? 0;
+    final double fat = (data['fat'] as num?)?.toDouble() ?? 0;
+    final double totalMacros = carbs + protein + fat;
+    
+    _currentResult = FoodAnalysisResult(
+      name: data['foodName']?.toString() ?? 'Unknown Food',
+      estimatedWeightGrams: 0.0, // AI prompt didn't ask for weight
+      totalCalories: (data['calories'] as num?)?.toDouble() ?? 0.0,
+      carbsPercentage: totalMacros > 0 ? ((carbs / totalMacros) * 100) : 0.0,
+      proteinPercentage: totalMacros > 0 ? ((protein / totalMacros) * 100) : 0.0,
+      fatPercentage: totalMacros > 0 ? ((fat / totalMacros) * 100) : 0.0,
+    );
   }
 
   void _showEditDialog() {
@@ -284,7 +300,7 @@ class _FoodResultScreenState extends State<FoodResultScreen> {
         const SizedBox(width: 8),
         Text(label, style: const TextStyle(fontSize: 14)),
         const Spacer(),
-        Text('${percentage.toInt()}%', style: const TextStyle(fontWeight: FontWeight.bold)),
+        Text('${percentage.toStringAsFixed(1)}%', style: const TextStyle(fontWeight: FontWeight.bold)),
       ],
     );
   }

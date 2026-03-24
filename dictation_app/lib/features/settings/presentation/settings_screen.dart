@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../main.dart';
 import '../../../core/models/dictation_word.dart';
-import '../../dictation/presentation/dictation_screen.dart';
+import '../../tools/dictation/presentation/dictation_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
