@@ -26,25 +26,33 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isAnalyzingFood = false;
   bool _isGradingMath = false;
 
-  Future<void> _startMathGradeFlow(BuildContext context, {required bool fromCamera}) async {
-    final XFile? image = await _picker.pickImage(
-      source: fromCamera ? ImageSource.camera : ImageSource.gallery,
-    );
+  Future<void> _startMathGradeFlow({required bool fromCamera}) async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: fromCamera ? ImageSource.camera : ImageSource.gallery,
+        imageQuality: 80,
+      );
 
-    if (image == null) return;
+      if (image == null) return;
 
-    final isZh = context.read<DictationSettingsProvider>().isChinese;
-    
-    if (!mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => MathGraderScreen(
-          imageFile: File(image.path),
-          isZh: isZh,
+      if (!mounted) return;
+      final isZh = context.read<DictationSettingsProvider>().isChinese;
+      
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => MathGraderScreen(
+            imageFile: File(image.path),
+            isZh: isZh,
+          ),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
   }
 
   void _showMathOptions(BuildContext context) {
@@ -54,7 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
+      builder: (bottomSheetContext) {
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -63,16 +71,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 leading: const Icon(Icons.camera_alt),
                 title: Text(isZh ? '拍作业批改' : 'Scan Homework'),
                 onTap: () {
-                  Navigator.pop(context);
-                  _startMathGradeFlow(context, fromCamera: true);
+                  Navigator.pop(bottomSheetContext);
+                  _startMathGradeFlow(fromCamera: true);
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.photo_library),
                 title: Text(isZh ? '从相册选择' : 'Choose from Gallery'),
                 onTap: () {
-                  Navigator.pop(context);
-                  _startMathGradeFlow(context, fromCamera: false);
+                  Navigator.pop(bottomSheetContext);
+                  _startMathGradeFlow(fromCamera: false);
                 },
               ),
             ],
@@ -82,38 +90,47 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _startFoodAnalysisFlow(BuildContext context, {required bool fromCamera}) async {
-    final XFile? image = await _picker.pickImage(
-      source: fromCamera ? ImageSource.camera : ImageSource.gallery,
-    );
-
-    if (image == null) return;
-
-    setState(() => _isAnalyzingFood = true);
-    
+  Future<void> _startFoodAnalysisFlow({required bool fromCamera}) async {
     try {
-      final isZh = context.read<DictationSettingsProvider>().isChinese;
-      final result = await _foodAIService.analyzeFoodImage(image, isZh);
-      
-      if (!mounted) return;
-      
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => FoodResultScreen(
-            imageFile: File(image.path),
-            initialResult: result,
-            isZh: isZh,
-          ),
-        ),
+      final XFile? image = await _picker.pickImage(
+        source: fromCamera ? ImageSource.camera : ImageSource.gallery,
+        imageQuality: 80,
       );
+
+      if (image == null) return;
+
+      setState(() => _isAnalyzingFood = true);
+      
+      try {
+        if (!mounted) return;
+        final isZh = context.read<DictationSettingsProvider>().isChinese;
+        final result = await _foodAIService.analyzeFoodImage(image, isZh);
+        
+        if (!mounted) return;
+        
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => FoodResultScreen(
+              imageFile: File(image.path),
+              initialResult: result,
+              isZh: isZh,
+            ),
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('AI Analysis Error: $e')),
+        );
+      } finally {
+        if (mounted) setState(() => _isAnalyzingFood = false);
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('AI Analysis Error: $e')),
+        SnackBar(content: Text('Error: $e')),
       );
-    } finally {
-      if (mounted) setState(() => _isAnalyzingFood = false);
     }
   }
 
@@ -124,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
+      builder: (bottomSheetContext) {
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -133,16 +150,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 leading: const Icon(Icons.camera_alt),
                 title: Text(isZh ? '拍照识别' : 'Take a Photo'),
                 onTap: () {
-                  Navigator.pop(context);
-                  _startFoodAnalysisFlow(context, fromCamera: true);
+                  Navigator.pop(bottomSheetContext);
+                  _startFoodAnalysisFlow(fromCamera: true);
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.photo_library),
                 title: Text(isZh ? '从相册选择' : 'Choose from Gallery'),
                 onTap: () {
-                  Navigator.pop(context);
-                  _startFoodAnalysisFlow(context, fromCamera: false);
+                  Navigator.pop(bottomSheetContext);
+                  _startFoodAnalysisFlow(fromCamera: false);
                 },
               ),
             ],
@@ -152,10 +169,20 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _startScanFlow(BuildContext context, {required bool fromCamera}) async {
+  Future<void> _startScanFlow({required bool fromCamera}) async {
     setState(() => _isScanning = true);
     try {
-      final words = await _ocrService.extractWordsFromImage(fromCamera: fromCamera);
+      final XFile? image = await _picker.pickImage(
+        source: fromCamera ? ImageSource.camera : ImageSource.gallery,
+        imageQuality: 80,
+      );
+
+      if (image == null) {
+        if (mounted) setState(() => _isScanning = false);
+        return;
+      }
+
+      final words = await _ocrService.extractWordsFromImage(image);
       if (!mounted) return;
 
       if (words.isEmpty) {
@@ -189,7 +216,7 @@ class _HomeScreenState extends State<HomeScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
+      builder: (bottomSheetContext) {
         final settings = context.watch<DictationSettingsProvider>();
         final isZh = settings.isChinese;
         
@@ -201,16 +228,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 leading: const Icon(Icons.camera_alt),
                 title: Text(isZh ? '拍照识别' : 'Take a Photo'),
                 onTap: () {
-                  Navigator.pop(context);
-                  _startScanFlow(context, fromCamera: true);
+                  Navigator.pop(bottomSheetContext);
+                  _startScanFlow(fromCamera: true);
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.photo_library),
                 title: Text(isZh ? '从相册选择' : 'Choose from Gallery'),
                 onTap: () {
-                  Navigator.pop(context);
-                  _startScanFlow(context, fromCamera: false);
+                  Navigator.pop(bottomSheetContext);
+                  _startScanFlow(fromCamera: false);
                 },
               ),
             ],
@@ -263,22 +290,6 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 24),
             _buildMathGraderCard(context, isZh),
             const SizedBox(height: 24),
-            Text(
-              isZh ? '即将推出...' : 'Coming Soon...',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            _buildComingSoonCard(
-              isZh ? '口算批改' : 'Math Grader', 
-              isZh ? '拍照自动批改口算题' : 'Auto grade math problems', 
-              Icons.calculate
-            ),
-            const SizedBox(height: 12),
-            _buildComingSoonCard(
-              isZh ? '背课文助手' : 'Recite Helper', 
-              isZh ? 'AI 辅助检查背诵情况' : 'AI assist for text recitation', 
-              Icons.record_voice_over
-            ),
           ],
         ),
       ),

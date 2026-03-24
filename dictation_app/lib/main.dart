@@ -5,6 +5,7 @@ import 'features/home/presentation/home_screen.dart';
 import 'core/models/dictation_word.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(
     MultiProvider(
       providers: [

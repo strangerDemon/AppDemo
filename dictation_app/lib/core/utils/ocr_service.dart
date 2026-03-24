@@ -7,14 +7,15 @@ class OCRService {
   // Using chinese script since it supports both English and Chinese
   final TextRecognizer _textRecognizer = TextRecognizer(script: TextRecognitionScript.chinese);
 
-  /// Captures an image from camera or gallery and extracts text
-  Future<List<DictationWord>> extractWordsFromImage({bool fromCamera = true}) async {
-    final XFile? image = await _picker.pickImage(
+  Future<XFile?> captureImage({bool fromCamera = true}) async {
+    return await _picker.pickImage(
       source: fromCamera ? ImageSource.camera : ImageSource.gallery,
+      imageQuality: 80,
     );
+  }
 
-    if (image == null) return [];
-
+  /// Captures an image from camera or gallery and extracts text
+  Future<List<DictationWord>> extractWordsFromImage(XFile image) async {
     final inputImage = InputImage.fromFilePath(image.path);
     final RecognizedText recognizedText = await _textRecognizer.processImage(inputImage);
 

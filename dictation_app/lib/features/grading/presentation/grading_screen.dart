@@ -29,7 +29,12 @@ class _GradingScreenState extends State<GradingScreen> {
 
     try {
       // Step 1: Capture photo of handwritten words
-      final writtenWordsData = await _ocrService.extractWordsFromImage(fromCamera: true);
+      final image = await _ocrService.captureImage(fromCamera: true);
+      if (image == null) {
+        if (mounted) setState(() => _isGrading = false);
+        return;
+      }
+      final writtenWordsData = await _ocrService.extractWordsFromImage(image);
       
       if (!mounted) return;
 
